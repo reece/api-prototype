@@ -1,4 +1,5 @@
-__pycache__
 *~
 *.bak
+.ipynb_checkpoints
+__pycache__
 venv

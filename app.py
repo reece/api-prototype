@@ -76,6 +76,9 @@ def request_key(d):
     j = json.dumps(d, sort_keys=True).encode("ascii")
     return hashlib.sha512(j).hexdigest()[:32]
 
+def to_iso8601(ts):
+    """convert timestamp float to iso8601 UTC time string"""
+    return str(arrow.Arrow.utcfromtimestamp(ts))
 
 
 # route methods
@@ -101,7 +104,7 @@ def request_get(request_id):
 
     response = dict(
         request_id = request_id,
-        submitted_at = request["submitted_at"],
+        submitted_at = to_iso8601(request["submitted_at"])
         )
 
     elapsed = arrow.utcnow().float_timestamp - request["submitted_at"]
@@ -116,15 +119,15 @@ def request_get(request_id):
         response["status"] = "FAILED"
     else:
         response["status"] = "READY"
-        response["finished_at"] = response["submitted_at"] + 15
-        response["data_uri"] = f"https://s3.blah/{request_id}/report.json"
-        response["report_uri"] = f"https://s3.blah/{request_id}/report.pdf"
+        response["report_json_uri"] = f"https://s3.blah/{request_id}/report.json"
+        response["report_pdf_uri"] = f"https://s3.blah/{request_id}/report.pdf"
+        response["finished_at"] = to_iso8601(request["submitted_at"] + 15)
 
     return response
 
 
 app = connexion.App(__name__)
-app.add_api("api.yaml")
+app.add_api("api.yaml", validate_responses=True)
 
 
 if __name__ == "__main__":

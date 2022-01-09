@@ -67,18 +67,9 @@ paths:
 
 components:
   schemas:
-    APIResponse:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        type:
-          type: string
-        message:
-          type: string
     PatientInfo:
       type: object
+      additionalProperties: false
       properties:
         first_name:
           type: string
@@ -92,19 +83,6 @@ components:
         biological_sex:
           type: string
           enum: [MALE, FEMALE, OTHER]
-      
-    Settings:
-      description: Customizable settings
-      type: object
-      required:
-        - webhook_url
-      properties:
-        webhook_url:
-          type: string
-          description: |
-            The webhook URL is sent events for any activity on behalf of the organization.
-      example:
-        webhook_url: https://mycompany.com/api/
 
   requestBodies:
     EmpowerPRSRequest:
@@ -139,6 +117,11 @@ components:
         application/json:
           schema:
             type: object
+            additionalProperties: false
+            required:
+              - request_id
+              - status
+              - submitted_at
             properties:
               request_id:
                 type: string
@@ -155,16 +138,12 @@ components:
               finished_at:
                 type: string
                 format: date-time
-              payload:
-                type: object
-                description: Content TBD
-                properties:
-                  five_year_risk:
-                    type: number
-                    example: 0.10
-                  lifetime_risk:
-                    type: number
-                    example: 0.20
+              report_pdf_uri:
+                type: string
+                format: uri
+              report_json_uri:
+                type: string
+                format: uri
 
     UnauthorizedError:
       description: Access token is missing or invalid
