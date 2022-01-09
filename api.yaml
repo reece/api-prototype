@@ -1,0 +1,177 @@
+openapi: 3.0.2
+
+info:
+  title: MyOme Empower PRS API
+  description: |
+    <font color="red">Not for implementation. This document is for
+    discussion purposes only (for now).</font>
+  
+    This API provides a service interface between MyOme and Natera for
+    requesting PRS computations and returning those results
+    asynchronously.
+
+    # Authentication
+    blah
+
+  version: "0.0.1"
+  termsOfService: 'http://myome.com/terms/'
+  contact:
+    email: api@myome.com
+
+# global security requirements
+security:
+  - jwt: []
+  
+paths:
+  /request:
+    post:
+      operationId: app.request_post
+      summary: Create an Empower job request
+      tags:
+        - Empower PRS
+      requestBody:
+        $ref: '#/components/requestBodies/EmpowerPRSRequest'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  request_id:
+                    type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /request/{request_id}:
+    parameters:
+      - name: request_id
+        in: path
+        description: Identifier provided by previous Empower PRS request
+        required: true
+        schema:
+          type: string
+        example: PRS-0123456
+    get:
+      operationId: app.request_get
+      tags:
+        - Empower PRS
+      summary: Fetch request status
+      responses:
+        '200':
+          $ref: '#/components/responses/EmpowerPRSResult'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  schemas:
+    APIResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        type:
+          type: string
+        message:
+          type: string
+    PatientInfo:
+      type: object
+      properties:
+        first_name:
+          type: string
+        middle_name:
+          type: string
+        last_name:
+          type: string
+        dob:
+          type: string
+          format: date
+        biological_sex:
+          type: string
+          enum: [MALE, FEMALE, OTHER]
+      
+    Settings:
+      description: Customizable settings
+      type: object
+      required:
+        - webhook_url
+      properties:
+        webhook_url:
+          type: string
+          description: |
+            The webhook URL is sent events for any activity on behalf of the organization.
+      example:
+        webhook_url: https://mycompany.com/api/
+
+  requestBodies:
+    EmpowerPRSRequest:
+      description: blah blah
+      content: 
+        'application/json':
+          schema:
+            type: object
+            required:
+              - fastq_files
+              - patient_info
+            additionalProperties: false
+            properties:
+              fastq_files:
+                type: array
+                items:
+                  type: string
+                example:
+                  - s3://somebucket/path/to/sample_R1.fastq.gz
+                  - s3://somebucket/path/to/sample_R2.fastq.gz
+              bam_file:
+                type: string
+                example: s3://somebucket/path/to/sample.bam
+              patient_info:
+                $ref: '#/components/schemas/PatientInfo'
+              tc_data:
+                type: object
+  responses:
+    EmpowerPRSResult:
+      description: Status of PRS request, and result if available
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              request_id:
+                type: string
+              status:
+                type: string
+                enum:
+                  - QUEUED
+                  - RUNNING
+                  - FAILED
+                  - READY
+              submitted_at:
+                type: string
+                format: date-time
+              finished_at:
+                type: string
+                format: date-time
+              payload:
+                type: object
+                description: Content TBD
+                properties:
+                  five_year_risk:
+                    type: number
+                    example: 0.10
+                  lifetime_risk:
+                    type: number
+                    example: 0.20
+
+    UnauthorizedError:
+      description: Access token is missing or invalid
+
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      x-bearerInfoFunc: app.decode_token
