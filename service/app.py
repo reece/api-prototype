@@ -26,20 +26,23 @@ request_queue = {}
 
 
 def generate_token():
-    timestamp = arrow.utcnow().float_timestamp
+    timestamp = arrow.utcnow().int_timestamp
     cf = jwt_config["api"]
     payload = {
         "iss": cf["iss"],
-        "iat": int(timestamp),
-        "exp": int(timestamp + cf["lifetime"]),
+        "iat": timestamp,
+        "exp": timestamp + cf["lifetime"],
         "aud": cf["aud"],
-        "sub": cf["iss"],
+        "sub": "who knows?",
     }
     token = jwt.encode(
         payload, cf["key"], algorithm=cf["alg"]
     )
     _logger.info(f'Generated token with issuer {cf["iss"]}')
-    return token
+    resp = {
+        "access_token": token
+    }
+    return resp
 
 
 def decode_token(token):
@@ -101,21 +104,23 @@ def to_iso8601(ts):
 
 
 def request_post(body, user):
-    request = dict(
-        body = body,
-        sub = user,
-    )
-    request_id = "QR-" + request_key(body)
-    if request_id in request_queue:
-        return "Duplicate request ignored", 400
-    request.update(dict(
-        request_id = request_id,
-        submitted_at = arrow.utcnow().float_timestamp    
-    ))
-    request_queue[request_id] = request
-    return {
-        "request_id": request_id,
+    request = {
+        "request": body,
+        "sub": user
     }
+    request_id = "QR-" + request_key(request)
+    #if request_id in request_queue:
+    #    return "Duplicate request ignored", 400
+    request.update({
+        "request_id": request_id,
+        "submitted_at": str(arrow.utcnow())
+    })
+
+    # For this protoype, the queue is merely a dictionary
+    # In a real deployment, we'd want a durable queue like AWS SWS
+    request_queue[request_id] = request
+
+    return request
 
 
 def request_get(request_id):
@@ -128,21 +133,20 @@ def request_get(request_id):
         request_id=request_id, submitted_at=to_iso8601(request["submitted_at"])
     )
 
-    elapsed = arrow.utcnow().float_timestamp - request["submitted_at"]
-
-    # For mocking purposes, transition the request at 15, 30, and 45
-    # seconds after submission.
-    if elapsed < 5:
+    # For mocking purposes, transition the request at 60, 120, 180
+    # seconds after submission.  Also, a FAILED status would usually be terminal.
+    elapsed = arrow.utcnow().int_timestamp - request["submitted_at"]
+    if elapsed < 60:
         response["status"] = "QUEUED"
-    elif elapsed < 10:
+    elif elapsed < 120:
         response["status"] = "RUNNING"
-    elif elapsed < 15:
+    elif elapsed < 180:
         response["status"] = "FAILED"
     else:
         response["status"] = "READY"
         response["report_json_uri"] = f"https://s3.blah/{request_id}/report.json"
         response["report_pdf_uri"] = f"https://s3.blah/{request_id}/report.pdf"
-        response["finished_at"] = to_iso8601(request["submitted_at"] + 15)
+        response["finished_at"] = to_iso8601(request["submitted_at"] + 180)
 
     return response
 
@@ -153,6 +157,5 @@ app.add_api("api.yaml", validate_responses=True)
 
 if __name__ == "__main__":
     import coloredlogs
-
     coloredlogs.install(level="INFO")
-    app.run(port=8080, debug=True)
+    app.run(port=8080, debug=True, extra_files=["api.yaml"])

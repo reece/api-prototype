@@ -1,0 +1,19 @@
+# These are credentials for the Client
+# Credentials are here for the sake of public edification and tire kicking
+# However, one should (almost) never put creds in a file like this.
+# Instead, use Hashcorp Vault, AWS Secrets Manager, etc
+
+api:
+  # For authenticating to the API /auth endpoint
+  client_id: Knuffle Bunny
+  client_secret: Aggle Flaggle
+  url: http://localhost:8080/
+
+auth0:
+  # For authenticating to Auth0
+  auth_url: https://reecehart.us.auth0.com/oauth/token
+  client_id: CB4c06bQUjXmc3tIvXfXrUZ4gn2zUTk0
+  client_secret: aDQpKpc1cIJ_1g-jU2DyN5sYGVNKfQxocYCSP9pb65HHHCo62v1hKXqby81Vj-Oe
+  grant_type: client_credentials
+  audience: api-prototype
+

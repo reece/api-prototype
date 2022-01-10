@@ -10,7 +10,10 @@ info:
 paths:
   /auth/:
     get:
-      summary: Return JWT token
+      summary: Generate token
+      description: >-
+        Generates a JWT *without requiring any authentication*.  This is for demonstration purposes only.
+        In practice, one should require user and password credentials.
       tags:
         - Authentication
       operationId: app.generate_token
@@ -18,14 +21,20 @@ paths:
         '200':
           description: JWT token
           content:
-            'text/plain':
+            'application/json':
               schema:
-                type: string
+                type: object
+                additionalProperties: False
+                properties:
+                  access_token:
+                    type: string
 
   /request:
     post:
       operationId: app.request_post
       summary: Create a request
+      description: >-
+        Queues a request for processing that is associated with the authenticated user.
       tags:
         - Request
       requestBody:
@@ -41,6 +50,13 @@ paths:
                 properties:
                   request_id:
                     type: string
+                  submitted_at: 
+                    type: string
+                    format: date-time
+                  sub:
+                    type: string
+                  request:
+                    type: object
         '401':
           $ref: '#/components/responses/UnauthorizedError'
       security:
@@ -99,6 +115,9 @@ components:
               - patient_info
             additionalProperties: false
             properties:
+              product_id:
+                type: string
+                example: PR-012345.1
               fastq_files:
                 type: array
                 items:
@@ -106,13 +125,8 @@ components:
                 example:
                   - s3://somebucket/path/to/sample_R1.fastq.gz
                   - s3://somebucket/path/to/sample_R2.fastq.gz
-              bam_file:
-                type: string
-                example: s3://somebucket/path/to/sample.bam
               patient_info:
                 $ref: '#/components/schemas/PatientInfo'
-              tc_data:
-                type: object
   responses:
     Result:
       description: Status of request, and result if available

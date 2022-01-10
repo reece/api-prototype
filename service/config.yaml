@@ -1,0 +1,28 @@
+users:
+  client_id: Knuffle Bunny
+  client_secret: Aggle Flaggle
+
+jwt:
+  api:
+    alg: HS256
+    key: "shared99secret!"
+    aud: api-prototype
+    iss: "me"
+    lifetime: 604800  # 7 days
+
+  auth0:
+    alg: RS256
+    aud: api-prototype
+
+    # public key extract from cert with
+    # openssl x509 -pubkey -in cert.pem 
+    key: |
+      -----BEGIN PUBLIC KEY-----
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwZ3+mf5G2sPct+LzIdfc
+      cbktMttw6ciUw7g6hRK24srZfwkJrWvm5E/HxLx5Hcaae0bGWQRpHHAw7hQYrWkQ
+      5nvsUEb8GFnVGHdbewqlrx2OW7vK86THBD40LIzJ3EXY+/rb7Z7J+vCTxi8SHH2o
+      gfk4rlrS4yOLFmxF7858/BgheXZpqXBSJ6s/NBKgIGd0JHG3E4cZm1oFCNGcgBoc
+      m13Zmd0CvLgcAU3TQBFEMV3tmUCWVDChcecBLwxBMxTyKqxJMHfhymnmdPHN4Mqt
+      /nO61Gkf0WWGzwWOceYLd9bDT0Hj7hTtuX0K8io+jGiTLdEjKjT+pfU169ItOWbQ
+      TwIDAQAB
+      -----END PUBLIC KEY-----
