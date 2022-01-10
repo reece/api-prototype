@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MyOme external API, implemented with OpenAPI
+Partner API demonstration using OpenAPI, JWT, and Connexion+Flask.
 """
 
 import enum
@@ -10,42 +10,36 @@ import logging
 import time
 import uuid
 
-import arrow
-from cryptography.x509 import load_pem_x509_certificate
-from jwt import decode, InvalidTokenError
 from werkzeug.exceptions import Unauthorized
+import arrow
 import connexion
+import jwt
+import yaml
 
-
-request_queue = {}
 
 _logger = logging.getLogger()
 
+config = yaml.load(open("config.yaml"), Loader=yaml.SafeLoader)
+jwt_config = config["jwt"]
 
-JWT_ALGORITHM = "RS256"
-audience="https://api.myome.info/"
-cert = b"""-----BEGIN CERTIFICATE-----
-MIIDDTCCAfWgAwIBAgIJXZLOciXVhE+rMA0GCSqGSIb3DQEBCwUAMCQxIjAgBgNV
-BAMTGWRldi00Y3JqanlieS51cy5hdXRoMC5jb20wHhcNMjIwMTA0MjExOTE0WhcN
-MzUwOTEzMjExOTE0WjAkMSIwIAYDVQQDExlkZXYtNGNyamp5YnkudXMuYXV0aDAu
-Y29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArkPSTIE+t13R5+RJ
-2EqlYqKL4AuN7ysvzsOmRr2wjqfcQiYNrjDEmoZ2SIOBRrJoKr37ARC1Ok8pFx2n
-Kt4nFCIny/BLt/H4HrloSgptCQhTNpm0TVD4JFP1vX7f0zxROz3uzVSCXRqA3Mhf
-gwmdT+2wwY4833u2+rEAe/i1TmvFDz3245/IcfYuh+u48+3RXp3gu0Tkj2ifaeXh
-jaJ4ckXn/V1iJeSCFFWfaj437kg2Gbgk16NDfU7e0AAiuHpWDHu4M74eOlI2D08r
-kukf3MhTu1JjBSfkoFZ6rbHBXZjA05ocgODPPG5p0McL0056tMADIAAiqkQEmviw
-onSCHwIDAQABo0IwQDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQm323tWic7
-yIa3Hvh61szK0aA/FDAOBgNVHQ8BAf8EBAMCAoQwDQYJKoZIhvcNAQELBQADggEB
-AJzPxyNTDPvty5z+RhBjPKmlE0VIOdY8fySZBdqMB57ZwqBZLjn0+tIBrksjcuma
-kunIk/yVEV6D+YrYIi4feMaNdRLKnHj+uiAkieOwyoy6a6FyPFv57y45IENsw3Kd
-aMBiLWenuLvz3zqTXw3bsLl+H31k8fqIUM4GGH479Oa2VjoP4c4G+xi44O56yY6m
-dCWAOz4oamQB/F13/1NP/LC4RMx5jzKfNTKpymQqAlVkPkkiHuPiBCTkiTdHtN/f
-zRYCwMWo8nsOORlMddcja6+SITSCD7cG1ZywxGsRhIoX9ccExkV0/J5LW8FiiYtU
-sAebVN33HGGkT3ZTR4S2brw=
------END CERTIFICATE-----
-"""
+request_queue = {}
 
-cert_obj = load_pem_x509_certificate(cert)
+
+def generate_token():
+    timestamp = arrow.utcnow().float_timestamp
+    cf = jwt_config["api"]
+    payload = {
+        "iss": cf["iss"],
+        "iat": int(timestamp),
+        "exp": int(timestamp + cf["lifetime"]),
+        "aud": cf["aud"],
+        "sub": cf["iss"],
+    }
+    token = jwt.encode(
+        payload, cf["key"], algorithm=cf["alg"]
+    )
+    _logger.info(f'Generated token with issuer {cf["iss"]}')
+    return token
 
 
 def decode_token(token):
@@ -57,44 +51,72 @@ def decode_token(token):
 
     """
 
+    header = jwt.get_unverified_header(token)
+    iss = jwt.decode(
+        token, algorithms=header["alg"], options={"verify_signature": False}
+    )["iss"]
+
+    if iss == "me":
+        # this JWT claims to be from this API
+        cf = config["jwt"]["api"]
+    elif "auth0" in iss:
+        # this JWT claims to be from auth0
+        cf = config["jwt"]["auth0"]
+    else:
+        return 400, "Invalid JWT issuer"
+
+    _logger.info(f"{token=}")
+    _logger.info(f"{iss=}")
+    _logger.info(f"{cf['alg']=}")
+    _logger.info(f"{cf['key']=}")
+    _logger.info(f"{cf['aud']=}")
+
     try:
-        decoded = decode(token,
-                         options={"verify_signature": False})
-        return decode(token,
-                          key=cert_obj.public_key(),
-                          audience=audience,
-                          algorithms=JWT_ALGORITHM)
+        token_data = jwt.decode(token, algorithms=cf["alg"], key=cf["key"], audience=cf["aud"])
     except InvalidTokenError as e:
         raise Unauthorized(str(e)) from e
 
+    # comply with RFC7662 re: token introspection
+    # https://datatracker.ietf.org/doc/html/rfc7662#section-2.2
+    token_data["active"] = True
+    
+    _logger.info(f"{token_data}")
+    return token_data
+
 
 def request_key(d):
-    """compute a digest from a canonical form for the dictionary d
-
-    """
+    """compute a digest from a canonical form for the dictionary d"""
 
     j = json.dumps(d, sort_keys=True).encode("ascii")
     return hashlib.sha512(j).hexdigest()[:32]
+
 
 def to_iso8601(ts):
     """convert timestamp float to iso8601 UTC time string"""
     return str(arrow.Arrow.utcfromtimestamp(ts))
 
 
-# route methods
+#####################################################################
+## API route handlers
 
-def request_post(body):
+
+def request_post(body, user):
+    request = dict(
+        body = body,
+        sub = user,
+    )
     request_id = "QR-" + request_key(body)
-    _logger.warn(f"{request_id} ({body})")
     if request_id in request_queue:
         return "Duplicate request ignored", 400
-    request_queue[request_id] = {
-        "submitted_at": arrow.utcnow().float_timestamp,
-        "request": body
-        }
+    request.update(dict(
+        request_id = request_id,
+        submitted_at = arrow.utcnow().float_timestamp    
+    ))
+    request_queue[request_id] = request
     return {
         "request_id": request_id,
-        }
+    }
+
 
 def request_get(request_id):
     try:
@@ -103,9 +125,8 @@ def request_get(request_id):
         return "No such request_id", 404
 
     response = dict(
-        request_id = request_id,
-        submitted_at = to_iso8601(request["submitted_at"])
-        )
+        request_id=request_id, submitted_at=to_iso8601(request["submitted_at"])
+    )
 
     elapsed = arrow.utcnow().float_timestamp - request["submitted_at"]
 
@@ -132,6 +153,6 @@ app.add_api("api.yaml", validate_responses=True)
 
 if __name__ == "__main__":
     import coloredlogs
+
     coloredlogs.install(level="INFO")
     app.run(port=8080, debug=True)
-

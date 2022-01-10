@@ -1,36 +1,35 @@
 openapi: 3.0.2
 
 info:
-  title: MyOme Empower PRS API
-  description: |
-    <font color="red">Not for implementation. This document is for
-    discussion purposes only (for now).</font>
-  
-    This API provides a service interface between MyOme and Natera for
-    requesting PRS computations and returning those results
-    asynchronously.
-
-    # Authentication
-    blah
+  title: Partner API
 
   version: "0.0.1"
-  termsOfService: 'http://myome.com/terms/'
   contact:
-    email: api@myome.com
+    email: reecehart@gmail.com
 
-# global security requirements
-security:
-  - jwt: []
-  
 paths:
+  /auth/:
+    get:
+      summary: Return JWT token
+      tags:
+        - Authentication
+      operationId: app.generate_token
+      responses:
+        '200':
+          description: JWT token
+          content:
+            'text/plain':
+              schema:
+                type: string
+
   /request:
     post:
       operationId: app.request_post
-      summary: Create an Empower job request
+      summary: Create a request
       tags:
-        - Empower PRS
+        - Request
       requestBody:
-        $ref: '#/components/requestBodies/EmpowerPRSRequest'
+        $ref: '#/components/requestBodies/Request'
       responses:
         '200':
           description: successful operation
@@ -44,26 +43,30 @@ paths:
                     type: string
         '401':
           $ref: '#/components/responses/UnauthorizedError'
-
+      security:
+        - jwt: []
+  
   /request/{request_id}:
     parameters:
       - name: request_id
         in: path
-        description: Identifier provided by previous Empower PRS request
+        description: Identifier provided by previous request submission
         required: true
         schema:
           type: string
-        example: PRS-0123456
+        example: XX-012345
     get:
       operationId: app.request_get
       tags:
-        - Empower PRS
+        - Request
       summary: Fetch request status
       responses:
         '200':
-          $ref: '#/components/responses/EmpowerPRSResult'
+          $ref: '#/components/responses/Result'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+      security:
+        - jwt: []
 
 components:
   schemas:
@@ -85,7 +88,7 @@ components:
           enum: [MALE, FEMALE, OTHER]
 
   requestBodies:
-    EmpowerPRSRequest:
+    Request:
       description: blah blah
       content: 
         'application/json':
@@ -111,8 +114,8 @@ components:
               tc_data:
                 type: object
   responses:
-    EmpowerPRSResult:
-      description: Status of PRS request, and result if available
+    Result:
+      description: Status of request, and result if available
       content:
         application/json:
           schema:

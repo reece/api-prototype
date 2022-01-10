@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    
+    participant P as Partner
+    participant A as Auth0
+    participant M as API
+    participant Q as Queue
+    participant B as Backend
+
+    note over M: All reqeusts require JWT authentication
+
+    rect rgb(200,230,255)
+    P ->> A: Authenticates using credentials
+    A ->> P: Returns asymmetric JWT
+    end
+
+    rect rgb(200,230,255)
+    P ->> M: Sends request
+    M ->> Q: Generates request id & queues request
+    M ->> P: Returns request id
+    end
+
+    rect rgb(200,230,255)
+    Q ->> B: Pull and process queued requests
+    end
+
+    B ->> P: Optional: LIMS notifies Partner that job has terminated
+
+    rect rgb(200,230,255)
+    P ->> M: Request status until FAILED or READY
+    P ->> M: Request results
+    M ->> B: Pull requests from backend
+    end
