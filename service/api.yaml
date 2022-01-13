@@ -11,9 +11,11 @@ paths:
   /auth/:
     get:
       summary: Generate token
-      description: >-
+      description: |
         Generates a JWT *without requiring any authentication*.  This is for demonstration purposes only.
         In practice, one should require user and password credentials.
+
+        Alternatively, this API supports JWT authentication from Auth0; see the jupyter notebook for an example.
       tags:
         - Authentication
       operationId: app.generate_token
@@ -51,8 +53,8 @@ paths:
                   request_id:
                     type: string
                   submitted_at: 
-                    type: string
-                    format: date-time
+                    type: integer
+                    #format: date-time
                   sub:
                     type: string
                   request:
@@ -70,7 +72,7 @@ paths:
         required: true
         schema:
           type: string
-        example: XX-012345
+        example: QR-47f9eed6255cd235b6c51c9888f233e2
     get:
       operationId: app.request_get
       tags:
@@ -150,11 +152,11 @@ components:
                   - FAILED
                   - READY
               submitted_at:
-                type: string
-                format: date-time
+                type: integer
+                #format: date-time
               finished_at:
-                type: string
-                format: date-time
+                type: integer
+                #format: date-time
               report_pdf_uri:
                 type: string
                 format: uri

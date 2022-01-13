@@ -51,8 +51,7 @@ For simplicity, we'll create a single virtual env for the service and the client
     python3 -m venv venv
     source venv/bin/activate
     pip install -U setuptools pip
-    pip install -r client/requirements.txt
-    pip install -r service/requirements.txt
+    pip install -r service/requirements.txt -r client/requirements.txt
 
 ### Starting the Service
 

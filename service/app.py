@@ -3,6 +3,7 @@
 Partner API demonstration using OpenAPI, JWT, and Connexion+Flask.
 """
 
+import copy
 import enum
 import hashlib
 import json
@@ -68,12 +69,6 @@ def decode_token(token):
     else:
         return 400, "Invalid JWT issuer"
 
-    _logger.info(f"{token=}")
-    _logger.info(f"{iss=}")
-    _logger.info(f"{cf['alg']=}")
-    _logger.info(f"{cf['key']=}")
-    _logger.info(f"{cf['aud']=}")
-
     try:
         token_data = jwt.decode(token, algorithms=cf["alg"], key=cf["key"], audience=cf["aud"])
     except InvalidTokenError as e:
@@ -113,12 +108,13 @@ def request_post(body, user):
     #    return "Duplicate request ignored", 400
     request.update({
         "request_id": request_id,
-        "submitted_at": str(arrow.utcnow())
+        "submitted_at": arrow.utcnow().int_timestamp
     })
 
     # For this protoype, the queue is merely a dictionary
     # In a real deployment, we'd want a durable queue like AWS SWS
     request_queue[request_id] = request
+    _logger.info(f"Created request {request_id}")
 
     return request
 
@@ -130,7 +126,8 @@ def request_get(request_id):
         return "No such request_id", 404
 
     response = dict(
-        request_id=request_id, submitted_at=to_iso8601(request["submitted_at"])
+        request_id=request_id, 
+        submitted_at=request["submitted_at"]
     )
 
     # For mocking purposes, transition the request at 60, 120, 180
@@ -146,7 +143,7 @@ def request_get(request_id):
         response["status"] = "READY"
         response["report_json_uri"] = f"https://s3.blah/{request_id}/report.json"
         response["report_pdf_uri"] = f"https://s3.blah/{request_id}/report.pdf"
-        response["finished_at"] = to_iso8601(request["submitted_at"] + 180)
+        response["finished_at"] = request["submitted_at"] + 180
 
     return response
 
